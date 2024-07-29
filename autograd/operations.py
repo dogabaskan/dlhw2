@@ -193,7 +193,7 @@ class BroadcastedOperation(BaseOperation):
         Returns:
             np.ndarray: NumPy array of derivative of broadcasting
         """
-        print("GRAD", grad_vector.shape)        
+        #print("GRAD", grad_vector.shape)        
         num_dim_grad = len(grad_vector.shape)
         num_dim_origin = len(original_shape)
         difference = num_dim_grad - num_dim_origin      
@@ -226,7 +226,8 @@ class BroadcastedOperation(BaseOperation):
         
         
         axises = tuple(my_list)
-        print("OG SHAPE", np.sum(grad_vector, axis = axises))
+        print("OG SHAPE",original_shape)
+        print("VAL", np.sum(grad_vector, axis = axises))
         derivative = np.sum(grad_vector, axis = axises).reshape(original_shape)
         return derivative
         
@@ -239,7 +240,7 @@ class Add(BroadcastedOperation):
         #print('FIRST', self.first_operand)
         #print("SECOND", self.second_operand)
         
-        return np.add([self.first_operand.value], [self.second_operand.value])
+        return self.first_operand.value + self.second_operand.value
 
     def vjp(self, grad_vector: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         return BroadcastedOperation.broadcast_vjp(grad_vector, self.first_operand.shape),\

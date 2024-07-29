@@ -56,7 +56,7 @@ def grad(variable: Array, gradient_vector: Optional[np.ndarray] = None) -> Dict[
 
     gradients[variable] = [np.float32(1.0) if gradient_vector is None else gradient_vector]
     
-    print("GRADIENTS", gradients)
+    #print("GRADIENTS", gradients)
     
     for var in sorted_arrays:
         #print("VARSSS", var)
@@ -64,7 +64,7 @@ def grad(variable: Array, gradient_vector: Optional[np.ndarray] = None) -> Dict[
         
         in_grad = sum(gradients[var])
         
-        print("in grad", in_grad)
+        #print("in grad", in_grad)
         #print("VAR OPERATION", var.operation)
 
         if var.operation is not None:
