@@ -86,7 +86,7 @@ class AffineLayer(Module):
         """
         
         val = array @ self.weight  + self.bias
-        print("VALUE SHAPE", val.shape)
+        #print("VALUE SHAPE", val.shape)
         return  val
     
 
@@ -105,9 +105,9 @@ class AffineLayer(Module):
 
         limit = np.sqrt(6 / (fan_in + fan_out))
         weight = Array(np.random.uniform(-limit, limit, size=(fan_in, fan_out)), is_parameter=True)
-        print("WEIGHT", weight.shape)
+        #print("WEIGHT", weight.shape)
         bias = Array(np.zeros((1, fan_out)), is_parameter= True )
-        print("BIAS", bias.shape)
+        #print("BIAS", bias.shape)
         
         
         return weight, bias
@@ -159,7 +159,7 @@ class FCN(Module):
 
         
         hidden_size = 64
-        print("OUTSIZE", out_size)
+        #print("OUTSIZE", out_size)
         self.layer_1 = AffineLayer(in_size, hidden_size)
         self.layer_2 = AffineLayer(hidden_size, out_size)
 

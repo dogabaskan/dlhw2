@@ -50,23 +50,28 @@ class Train():
         features = Array(batch_data)
         labels = Array(batch_labels)
 
-        print("FEATURES", features.shape)
-        print("LABELS", labels.shape)
+        #print("FEATURES", features.shape)
+        #print("LABELS", labels.shape)
         
         logits = self.model(features)
         
-        print("LOGITS", logits.shape)
+        #print("LOGITS", logits.shape)
              
         loss_value = nll_with_logits_loss(logits, labels)
-        print("LOSS SHAPE", loss_value.shape)
+        loss_val = loss_value.value.mean()
+        
+
+        #print("LOSS VAL", loss_value)
         gradients = grad(loss_value)
 
-        self.optimizer.step(self.model.parameters, gradients)
+        self.optimizer.update(gradients)
 
         predictions = self.predict(features)
+        predictions = softmax(predictions)
         accuracy = self.accuracy(predictions, batch_labels)
 
-        return loss_value.value, accuracy
+
+        return loss_value, accuracy
     
     def fit(self,
             train_data_loader: DataLoader,
