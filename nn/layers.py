@@ -208,31 +208,37 @@ class BatchNorm(Module):
         Returns:
             Array: Output of the layer
         """
+        
+        
+        running_mean = Array(np.zeros(self.feature_size))
+        running_std = Array(np.ones(self.feature_size))
+        
+        gamma = Array(np.ones(self.feature_size))
+        beta = Array(np.zeros(self.feature_size))  
+        momentum = Array(np.array([0.1] * self.feature_size ))
+        epsilon = Array(np.array([epsilon] *self.feature_size))
+        
         if self.is_training_mode:
             batch_mean = array.mean(axis=0)
             batch_std = self.std(array, axis=0)
             
-            mean = np.zeros(self.feature_size)
-            std = np.ones(self.feature_size)
-            
-            gamma = np.ones(self.feature_size)
-            beta = np.zeros(self.feature_size)
-
-            
-            momentum = 0.1
-
-
-            mean = momentum * batch_mean + (1 - momentum) * mean
-            std = momentum * batch_std + (1 - momentum) * std
+     
+            running_mean = momentum * batch_mean + (1 - momentum) * running_mean
+            running_std = momentum * batch_std + (1 - momentum) * running_std
             
             mean = batch_mean
             std = batch_std
+             
         else:
-            mean_val = mean
-            std_val = std
-        
-        normalized_array = (array - mean_val) / (std_val + epsilon)
-        output_array = gamma * normalized_array + beta
+            mean = running_mean
+            std = running_std
+            
+        #print("ARR", array.shape)
+        #print("MEAN", mean.shape)
+        #print("STD", std)
+        #print("EPS", epsilon)
+        normalized_array = (array - mean) / (std + epsilon)
+        output_array =   gamma *normalized_array + beta
         return output_array
 
     @staticmethod
@@ -269,10 +275,7 @@ class BatchNormFCN(Module):
         self.out_size = out_size
         self.activation_fn = activation_fn
         
-        self.weights = np.random(in_size, out_size)
-        self.biases = np.zeros(out_size)
-        
-
+        self.affine = AffineLayer(in_size, out_size)
         self.batch_norm = BatchNorm(out_size)
 
     def forward(self, features: Array) -> Array:
@@ -286,15 +289,13 @@ class BatchNormFCN(Module):
             Note: Do not apply any non-linearity to the output of the function. We will use loss 
                 function that expects logits (output of the affine layer).
         """
-        linear_output = features @ self.weights + self.biases
-        
-      
-        normalized_output = self.batch_norm.forward(linear_output)
-        
- 
+
+        affine_output = self.affine(features)
+        normalized_output = self.batch_norm.forward(affine_output)
         activated_output = self.activation_fn(normalized_output)
         
         return activated_output
+
 
 
 class Dropout(Module):
@@ -323,8 +324,9 @@ class Dropout(Module):
             Array: Output Array of same shape
         """
         if self.is_train_mode:
-            mask = (np.random.rand(*array.shape) > self.drop_p).astype(np.float32)
-            return array * mask / (1 - self.drop_p)
+            mask = Array((np.random.rand(*array.shape) > self.drop_p).astype(array.dtype))
+            array =  array * mask / (1 - self.drop_p)
+        
         return array
 
 
@@ -342,18 +344,10 @@ class DropoutFCN(Module):
     def __init__(self, in_size: int, out_size: int, activation_fn: Callable[[Array], Array], p_drop: float = 0.1) -> None:
         super().__init__()
 
-        self.in_size = in_size
-        self.out_size = out_size
+        self.fc = AffineLayer(in_size, out_size)
+        self.batch_norm = BatchNorm(out_size)
+        self.dropout = Dropout(p_drop)
         self.activation_fn = activation_fn
-
-        hidden_size = (in_size + out_size) 
-        self.layer_1 = AffineLayer(in_size, hidden_size)
-        self.batch_norm1 = BatchNorm(hidden_size)
-        self.dropout1 = Dropout(p_drop)
-
-        self.layer_2 = AffineLayer(hidden_size, out_size)
-        self.batch_norm2 = BatchNorm(out_size)
-        self.dropout2 = Dropout(p_drop)
         
     def forward(self, features: Array) -> Array:
         """ Forward processing function.
@@ -366,15 +360,10 @@ class DropoutFCN(Module):
             Note: Do not apply any non-linearity to the output of the function. We will use loss 
                 function that expects logits (output of the affine layer).
         """
-        x = self.layer_1(features)
-        x = self.batch_norm1(x)
-        x = self.dropout1(x)
+        x = self.fc(features)
+        x = self.batch_norm(x)
+        x = self.dropout(x)
         x = self.activation_fn(x)
-        
-        x = self.layer_2(x)
-        x = self.batch_norm2(x)
-        x = self.dropout2(x)
-        
         return x
 
 
@@ -390,23 +379,19 @@ class MaxoutFCN(Module):
             p_drop (float, optional): Dropping probability for dropout layer(s). Defaults to 0.1.
             n_affine_outputs (int, optional): Number of affine outputs to be max out for every 
                 feature. Defaults to 5.
-        """
+        """        
         super().__init__()
         
         self.in_size = in_size
         self.out_size = out_size
+        self.feature_size = 128
         self.n_affine_outputs = n_affine_outputs
-
-        hidden_size = (in_size + out_size) 
-
-        self.affine_layers = [AffineLayer(in_size, hidden_size) for _ in range(n_affine_outputs)]
-        self.batch_norm1 = BatchNorm(hidden_size)
-        self.dropout1 = Dropout(p_drop)
-
-        self.affine_layers2 = [AffineLayer(hidden_size, out_size) for _ in range(n_affine_outputs)]
-        self.batch_norm2 = BatchNorm(out_size)
-        self.dropout2 = Dropout(p_drop)
-
+        
+        
+        self.fc1 = AffineLayer(in_size, 64 * n_affine_outputs)
+        self.batch_norm = BatchNorm(in_size)
+        self.dropout = Dropout(p_drop)
+        self.fc2 = AffineLayer(64, out_size)
 
 
     def forward(self, features: Array) -> Array:
@@ -420,15 +405,28 @@ class MaxoutFCN(Module):
             Note: Do not apply any non-linearity to the output of the function. We will use loss 
                 function that expects logits (output of the affine layer).
         """
-        affine_outputs1 = [affine_layer(features) for affine_layer in self.affine_layers]
-        maxout1 = np.maximum.reduce(affine_outputs1)
-        maxout1 = self.batch_norm1(maxout1)
-        maxout1 = self.dropout1(maxout1)
+        
+        x = self.batch_norm(features)
+        print("X", x.shape)
+        x = self.fc1(features)
+        print("X", x.shape)
+        x = x.reshape(features.shape[0],-1,64)
+        
+    
+        
+        print("X", x.shape)
+        #print("IN", self.in_size)
+        #print("OUT", self.out_size)
+
+        x = self.dropout(x)
+        
+        #print("X", x.shape)
+        x = x.max(axis = 1)
+        
+        print("X", x.shape)
+        x = self.fc2(x)
+        
+        return x
 
 
-        affine_outputs2 = [affine_layer(maxout1) for affine_layer in self.affine_layers2]
-        maxout2 = np.maximum.reduce(affine_outputs2)
-        maxout2 = self.batch_norm2(maxout2)
-        maxout2 = self.dropout2(maxout2)
 
-        return maxout2

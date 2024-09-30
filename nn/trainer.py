@@ -58,20 +58,18 @@ class Train():
         #print("LOGITS", logits.shape)
              
         loss_value = nll_with_logits_loss(logits, labels)
-        loss_val = loss_value.value.mean()
-        
+
+        loss_val = loss_value.mean()
 
         #print("LOSS VAL", loss_value)
-        gradients = grad(loss_value)
+        gradients = grad(loss_val)
 
         self.optimizer.update(gradients)
 
-        predictions = self.predict(features)
-        predictions = softmax(predictions)
-        accuracy = self.accuracy(predictions, batch_labels)
+        predictions = softmax(logits).value.argmax(axis=-1)
+        accuracy = self.accuracy(predictions, batch_labels).item()
 
-
-        return loss_value, accuracy
+        return loss_val.value.item(), accuracy
     
     def fit(self,
             train_data_loader: DataLoader,
